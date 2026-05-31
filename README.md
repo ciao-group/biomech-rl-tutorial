@@ -3,15 +3,14 @@
 This project provides a simple tutorial for setting up, customizing, training, and visualizing a musculoskeletal finger model using [MyoSuite](https://github.com/MyoHub/myosuite), [Gymnasium](https://gymnasium.farama.org/), and [Stable-Baselines3](https://stable-baselines3.readthedocs.io/).
 
 ## Google Colab
- 
-You can use the provided Jupyter Notebook (`Colab_Tutorial.ipynb`) 
-1. Clone the entire project directory into your Google Colab session.
-2. Open `Colab_Tutorial.ipynb` in Colab.
-3. Run the cells sequentially!
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/MichalMiazga/biomech-rl-tutorial/blob/main/Colab_Tutorial.ipynb)
+
+Click the badge above to open the tutorial notebook directly in Google Colab. The notebook will automatically clone this repository and install all dependencies. Just run the cells sequentially!
 
 ## Project Structure
 
-* **`tutorial.py`**: A basic script to load the `myoFingerPoseFixed-v0` environment and apply a simple oscillating sine wave to the muscle activations. Shows how to interact with the environment without RL.
+* **`Colab_Tutorial.ipynb`**: An interactive Jupyter Notebook to run the entire workflow in Google Colab.
 * **`reward_tutorial.py`**: Defines a custom environment class (`CustomRewardPoseEnv`) that inherits from MyoSuite's `PoseEnvV0`. It demonstrates how to override the reward function and inject custom rewards (e.g., an "efficiency" reward).
 * **`train.py`**: Trains a Proximal Policy Optimization (PPO) agent using Stable-Baselines3 on the custom environment defined in `reward_tutorial.py`.
 * **`visualize.py`**: Loads the trained PPO model, runs it in the custom environment, and renders the episode. The rendered frames are saved as an MP4 video in the `video/` directory.
@@ -25,14 +24,14 @@ This project uses [uv](https://github.com/astral-sh/uv) as its package manager f
 pip install uv
 ```
 
-2. Sync the environment and install dependencies defined in `pyproject.toml` (which includes `myosuite`, `gymnasium`, `stable-baselines3`, and `imageio`):
+2. Sync the environment and install dependencies defined in `pyproject.toml`:
 ```bash
 uv sync
 ```
 
 Alternatively, you can manually run a script using uv to handle the environment automatically:
 ```bash
-uv run python tutorial.py
+uv run python train.py
 ```
 
 ## Workflow: Human-in-the-Loop Reward Tuning
