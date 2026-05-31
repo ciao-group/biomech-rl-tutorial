@@ -2,6 +2,13 @@
 
 This project provides a simple tutorial for setting up, customizing, training, and visualizing a musculoskeletal finger model using [MyoSuite](https://github.com/MyoHub/myosuite), [Gymnasium](https://gymnasium.farama.org/), and [Stable-Baselines3](https://stable-baselines3.readthedocs.io/).
 
+## Google Colab
+ 
+You can use the provided Jupyter Notebook (`Colab_Tutorial.ipynb`) 
+1. Clone the entire project directory into your Google Colab session.
+2. Open `Colab_Tutorial.ipynb` in Colab.
+3. Run the cells sequentially!
+
 ## Project Structure
 
 * **`tutorial.py`**: A basic script to load the `myoFingerPoseFixed-v0` environment and apply a simple oscillating sine wave to the muscle activations. Shows how to interact with the environment without RL.
@@ -33,14 +40,14 @@ uv run python tutorial.py
 The setup is designed to allow you to easily modify what the agent "cares about" and immediately see the results.
 
 ### 1. Modify the Reward
-Open `reward_tutorial.py`. Inside the `get_reward_dict` method, you can add new reward terms or modify existing weights. For example, you can penalize certain joint limits or reward energy-efficient muscle activations.
+Open `reward_tutorial.py`. Inside the `__init__` method, you can adjust the `default_weights` or modify the `custom_reward_weights` passed in `train.py`. You can also inject entirely new reward logic inside the `get_reward_dict` function.
 
 ### 2. Train the Agent
 Run the training script to train a new agent based on your customized reward logic:
 ```bash
 uv run python train.py
 ```
-This will train the agent for 50,000 timesteps and save the model to `models/ppo_myofinger_custom_reward.zip`.
+This will train the agent for 100,000 timesteps across 10 parallel environments and save the model to `models/ppo_myofinger_custom_reward.zip`.
 
 ### 3. Visualize the Results
 Once training is complete, run the visualization script to watch the agent's behavior:
