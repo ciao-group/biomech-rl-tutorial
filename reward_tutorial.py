@@ -13,10 +13,10 @@ class CustomRewardPoseEnv(PoseEnvV0):
     """
 
     def __init__(self, *args, **kwargs):
-        # Do not pop custom arguments. Let them pass through to the parent 
-        # so they can be pickled for multiprocessing.
-        self.use_muscle_noise = kwargs.get('use_muscle_noise', False)
-        self.custom_reward_weights = kwargs.get('custom_reward_weights', None)
+        # Pop custom arguments before calling the parent constructor.
+        self.use_muscle_noise = kwargs.pop('use_muscle_noise', False)
+        self.custom_reward_weights = kwargs.pop('custom_reward_weights', None)
+        self.print_reward_components = kwargs.pop('print_reward_components', False)
 
         # IMPORTANT: MyoSuite's base environment calls `step()` during its initialization.
         # Therefore, any attributes needed by our custom `step()` (like `self.rng`) 
@@ -26,12 +26,10 @@ class CustomRewardPoseEnv(PoseEnvV0):
             self.sigma_signal_dependent = 0.103 * 1.8
             self.sigma_constant = 0.185 * 2.5
 
-        # Call the parent constructor with all kwargs, including our custom ones.
+        # Call the parent constructor with all remaining kwargs.
         super().__init__(*args, **kwargs)
 
         # --- DEFAULT WEIGHTS (Matching Original Env) ---
-        # We keep a local copy here so it's easy to see and modify the defaults 
-        # if you don't pass `custom_reward_weights`.
         default_weights = {
             "pose": 1.0,
             "bonus": 4.0,
@@ -39,8 +37,6 @@ class CustomRewardPoseEnv(PoseEnvV0):
             "penalty": 50,
             "efficiency": 0.0  # Custom weight disabled by default
         }
-
-        # Apply the default weights
         self.rwd_keys_wt.update(default_weights)
 
         # If the user passed custom weights, overwrite the defaults
@@ -76,49 +72,35 @@ class CustomRewardPoseEnv(PoseEnvV0):
         Overriding the core reward calculation function.
         It must return a dictionary containing "dense", "sparse", "solved", and "done".
         """
-        # The goal distance (Euclidean distance between current pose and target pose)
         pose_dist = np.linalg.norm(obs_dict["pose_err"], axis=-1)
-
-        # Muscle activation magnitude (how hard the muscles are firing)
         act_mag = np.linalg.norm(self.obs_dict["act"], axis=-1)
         if self.mj_model.na != 0:
             act_mag = act_mag / self.mj_model.na
 
-        far_th = 4 * np.pi / 2  # Hardcoded distance threshold for "failing" the task
-
-        # ==========================================================
-        # YOUR CUSTOM REWARD COMPONENT
-        # Let's say we want to heavily reward the agent if the pose is correct,
-        # AND it is using almost NO muscle activation (efficiency).
+        far_th = 4 * np.pi / 2
         is_close = pose_dist < self.pose_thd
         is_efficient = act_mag < 0.05
-
-
         efficiency_reward = 1.0 * np.logical_and(is_close, is_efficient)
-        # ==========================================================
 
-        # Build the reward dictionary
         rwd_dict = collections.OrderedDict((
-            # Optional Keys (Weighted)
             ("pose", -1.0 * pose_dist),
             ("bonus", 1.0 * (pose_dist < self.pose_thd) + 1.0 * (pose_dist < 1.5 * self.pose_thd)),
             ("penalty", -1.0 * (pose_dist > far_th)),
             ("act_reg", -1.0 * act_mag),
-
-            # Our custom key
             ("efficiency", efficiency_reward),
-
-
             ("sparse", -1.0 * pose_dist),
             ("solved", pose_dist < self.pose_thd),
             ("done", pose_dist > far_th),
         ))
 
-        # The 'dense' key must contain the weighted sum of the components.
-        # This is the actual single float value returned by `env.step()`.
         rwd_dict["dense"] = np.sum(
             [wt * rwd_dict[key] for key, wt in self.rwd_keys_wt.items() if key in rwd_dict], axis=0
         )
+        
+        if self.print_reward_components:
+            # Create a dictionary of the weighted rewards for easier debugging
+            weighted_rewards = {key: rwd_dict[key] * self.rwd_keys_wt.get(key, 0) for key in rwd_dict if key not in ['sparse', 'solved', 'done', 'dense']}
+            print("Reward Weighted Components:", weighted_rewards)
 
         return rwd_dict
 
@@ -139,6 +121,7 @@ def main():
         viz_site_targets=("IFtip",),
         normalize_act=True,
         use_muscle_noise=True,
+        print_reward_components=True,
         custom_reward_weights={
             "pose": 2.0,
             "bonus": 10.0,
@@ -153,17 +136,9 @@ def main():
     print("\nStarting an episode to test the new rewards...")
     total_reward = 0
     for i in range(100):
-        # We sample a completely random muscle activation
         action = env.action_space.sample()
         obs, reward, terminated, truncated, info = env.step(action)
         total_reward += reward
-
-        # Every 20 steps, let's print the detailed breakdown of the rewards
-        if i % 20 == 0:
-            print(f"\nStep {i}:")
-            print(f"  Dense Reward (total): {reward:.4f}")
-            print(f"  Detailed Breakdown:   {info['rwd_dict']}")
-
         if terminated or truncated:
             break
 

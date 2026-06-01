@@ -3,7 +3,7 @@ import myosuite
 from stable_baselines3 import PPO
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from gymnasium.wrappers import TimeLimit
 from reward_tutorial import CustomRewardPoseEnv
 
@@ -17,6 +17,9 @@ def train():
     myosuite_dir = os.path.dirname(myosuite.__file__)
     model_path = os.path.join(myosuite_dir, "simhive", "myo_sim", "finger", "myofinger_v0.xml")
 
+    # --- Main Configuration ---
+    PRINT_REWARD_COMPONENTS = True # Set to True to see the breakdown and use DummyVecEnv
+
     # Define the arguments for the environment, which will be passed to each parallel process
     env_kwargs = {
         "model_path": model_path,
@@ -29,6 +32,7 @@ def train():
         "viz_site_targets": ("IFtip",),
         "normalize_act": True,
         "use_muscle_noise": True,
+        "print_reward_components": PRINT_REWARD_COMPONENTS,
         "custom_reward_weights": {
             "pose": 1.0,
             "bonus": 4.0,
@@ -37,14 +41,20 @@ def train():
         }
     }
 
-    # Create a vectorized environment that runs 10 instances of the environment in parallel
-    n_envs = 10
-    
-    # We pass our factory function `make_custom_env`. 
+    # Automatically switch between fast parallel training and slow debug training
+    if PRINT_REWARD_COMPONENTS:
+        print("Debug mode: Using DummyVecEnv to show reward components.")
+        vec_env_class = DummyVecEnv
+        n_envs = 1
+    else:
+        print("Performance mode: Using SubprocVecEnv for fast parallel training.")
+        vec_env_class = SubprocVecEnv
+        n_envs = 10
+
     env = make_vec_env(
         make_custom_env,
         n_envs=n_envs,
-        vec_env_cls=SubprocVecEnv,
+        vec_env_cls=vec_env_class,
         env_kwargs=env_kwargs
     )
 
@@ -54,8 +64,8 @@ def train():
 
     model = PPO("MlpPolicy", env, verbose=1)
 
-    print(f"Starting training on {n_envs} parallel custom reward environments...")
-    # Train for 100_000 timesteps. Note: total_timesteps is distributed across all envs.
+    print(f"Starting training on {n_envs} custom reward environment(s) using {vec_env_class.__name__}...")
+    # Train for 100_000 timesteps.
     model.learn(total_timesteps=100_000, callback=checkpoint_callback)
 
     # Save the final model
